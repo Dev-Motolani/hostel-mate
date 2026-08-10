@@ -1,0 +1,60 @@
+from django.conf import settings
+from django.db import models
+
+
+class Listing(models.Model):
+    class PaymentPeriod(models.TextChoices):
+        YEAR = "year", "Per Year"
+        SESSION = "session", "Per Session"
+        SEMESTER = "semester", "Per Semester"
+        MONTH = "month", "Per Month"
+
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="listings")
+    title = models.CharField(max_length=180)
+    description = models.TextField()
+    location = models.CharField(max_length=180)
+    rent_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    payment_period = models.CharField(max_length=12, choices=PaymentPeriod.choices, default=PaymentPeriod.YEAR)
+    lease_months = models.PositiveSmallIntegerField(default=12, help_text="Length of the rent agreement in months.")
+    finder_phone = models.CharField(max_length=30, blank=True, help_text="Phone number for the finder who posted the room.")
+    contact_phone = models.CharField(max_length=30)
+    is_contact_free = models.BooleanField(default=True)
+    finder_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    facilities = models.JSONField(default=list, blank=True, help_text="Available facilities, for example Wi-Fi or running water.")
+    is_available = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title
+
+
+class ListingImage(models.Model):
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name="images")
+    image = models.ImageField(upload_to="listings/")
+    alt_text = models.CharField(max_length=150, blank=True)
+    position = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "id"]
+
+
+class ListingVideo(models.Model):
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name="videos")
+    video = models.FileField(upload_to="listings/videos/")
+    position = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "id"]
+
+
+class ListingLike(models.Model):
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name="likes")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="liked_listings")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("listing", "user"), name="unique_listing_like")]
