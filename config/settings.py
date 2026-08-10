@@ -23,7 +23,12 @@ load_local_environment()
 
 SECRET_KEY = os.getenv("SECRET_KEY", "unsafe-development-key-change-me")
 DEBUG = os.getenv("DEBUG", "True").lower() == "true"
-ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")]
+ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if host.strip()]
+# Vercel supplies the current deployment hostname without a protocol. Including it
+# supports both the production domain and preview deployments without a wildcard.
+vercel_url = os.getenv("VERCEL_URL", "").strip()
+if vercel_url and vercel_url not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(vercel_url)
 
 INSTALLED_APPS = [
     "django.contrib.admin",
