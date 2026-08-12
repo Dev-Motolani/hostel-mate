@@ -117,7 +117,7 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 if USE_CLOUDINARY:
     STORAGES = {
-        "default": {"BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage"},
+        "default": {"BACKEND": "config.storage.HostelMateCloudinaryStorage"},
         "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
     }
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

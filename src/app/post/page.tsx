@@ -13,6 +13,16 @@ const standardFacilities = ["Running water", "Prepaid meter", "Wi-Fi", "Security
 const durations = [3, 6, 8, 12, 18];
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000/api";
 
+async function readApiResponse(response: Response) {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) return response.json();
+  const responseText = await response.text();
+  if (responseText.trimStart().startsWith("<!DOCTYPE") || responseText.includes("<html")) {
+    return { detail: `The server returned an error page (${response.status}). Please try again after the backend deployment finishes.` };
+  }
+  return { detail: responseText || `The server returned ${response.status}.` };
+}
+
 export default function PostListingPage() {
   const router = useRouter();
   const [isFree, setIsFree] = useState(true);
@@ -86,7 +96,7 @@ export default function PostListingPage() {
     files.forEach((file) => formData.append(field, file));
     const response = await authenticatedFetch(`${apiUrl}/listings/${listingId}/${field}/`, { method: "POST", body: formData });
     if (!response.ok) {
-      const data = await response.json();
+      const data = await readApiResponse(response);
       throw new Error(data.detail || `Unable to upload ${field}.`);
     }
   }
@@ -108,7 +118,7 @@ export default function PostListingPage() {
           finder_fee: isFree ? 0 : form.get("finder_fee"), facilities,
         }),
       });
-      const data = await response.json();
+      const data = await readApiResponse(response);
       if (!response.ok) throw new Error(Object.values(data).flat().join(" ") || "Unable to publish this listing.");
       await uploadMedia(data.id, "images", photos);
       await uploadMedia(data.id, "videos", videos);
