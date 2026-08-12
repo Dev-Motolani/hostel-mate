@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Home, User, Home as HomeIcon, Upload, ArrowRight, ShieldCheck, CheckCircle2, Camera, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { authenticatedFetch, SESSION_EXPIRED } from "@/lib/auth";
+import { PageSkeleton } from "@/components/page-skeleton";
 
 const NIGERIAN_UNIVERSITIES = [
   "University of Ilorin", "University of Ibadan", "University of Lagos", "University of Nigeria, Nsukka",
@@ -34,12 +35,15 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(1);
   const [role, setRole] = useState<"student" | "landlord" | null>(null);
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [businessName, setBusinessName] = useState("");
+  const [propertyLocation, setPropertyLocation] = useState("");
   const [school, setSchool] = useState("");
   const [department, setDepartment] = useState("");
   const [level, setLevel] = useState("");
   const [idDocument, setIdDocument] = useState<File | null>(null);
   const [idPreview, setIdPreview] = useState<string | null>(null);
   const [selfie, setSelfie] = useState<File | null>(null);
+  const [ownershipProof, setOwnershipProof] = useState<File | null>(null);
   const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState("");
@@ -47,12 +51,34 @@ export default function OnboardingPage() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [verificationError, setVerificationError] = useState("");
   const [verificationMessage, setVerificationMessage] = useState("");
-  const [awaitingReview, setAwaitingReview] = useState(false);
   const [isSubmittingVerification, setIsSubmittingVerification] = useState(false);
+  const [idCardConfirmed, setIdCardConfirmed] = useState(false);
+  const [verificationConsent, setVerificationConsent] = useState(false);
+  const [verificationComplete, setVerificationComplete] = useState(false);
+  const [isCheckingAccount, setIsCheckingAccount] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const handleNext = () => setStep((prev) => prev + 1);
-  const handleBack = () => setStep((prev) => prev - 1);
+  const handleBack = () => {
+    if (step === 2) router.push("/listings");
+    else setStep((prev) => prev - 1);
+  };
+
+  useEffect(() => {
+    const loadAccount = async () => {
+      try {
+        const response = await authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000/api"}/auth/me/`);
+        if (!response.ok) throw new Error("Unable to load account");
+        const user = await response.json();
+        if (user.is_verified_poster) { router.replace("/post"); return; }
+        setRole(user.account_type);
+        setStep(2);
+      } catch (error) {
+        if (error instanceof Error && error.message === SESSION_EXPIRED) router.replace("/login");
+      } finally { setIsCheckingAccount(false); }
+    };
+    loadAccount();
+  }, [router]);
 
   useEffect(() => {
     if (stream && videoRef.current) videoRef.current.srcObject = stream;
@@ -114,6 +140,7 @@ export default function OnboardingPage() {
       if (isIdCard) {
         setIdDocument(image);
         setIdPreview(URL.createObjectURL(image));
+        setIdCardConfirmed(false);
       } else {
         setSelfie(image);
         setSelfiePreview(URL.createObjectURL(image));
@@ -122,9 +149,40 @@ export default function OnboardingPage() {
     }, "image/jpeg", 0.9);
   };
 
+  const selectIdCardFile = (file: File | null) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setVerificationError("Upload an image of your physical student ID card. PDF and selfie uploads are not accepted for this step.");
+      return;
+    }
+    setVerificationError("");
+    setIdDocument(file);
+    setIdPreview(URL.createObjectURL(file));
+    setIdCardConfirmed(false);
+  };
+
   const submitVerification = async () => {
-    if (role === "student" && (!phoneNumber || !school || !department || !level || !idDocument || !selfie)) {
-      setVerificationError("Complete your phone number, school, department, level, ID-card capture, and live selfie before submitting.");
+    if (!verificationConsent) {
+      setVerificationError("You must give consent before we can review your verification documents.");
+      return;
+    }
+    if (role === "student") {
+      const missingItems = [
+        !phoneNumber && "phone number",
+        !school && "school",
+        !department && "department",
+        !level && "level",
+        !idDocument && "student ID-card image",
+        !selfie && "live selfie",
+        !idCardConfirmed && "ID-card confirmation checkbox",
+      ].filter(Boolean);
+      if (missingItems.length) {
+        setVerificationError(`Please complete: ${missingItems.join(", ")}.`);
+        return;
+      }
+    }
+    if (role === "landlord" && (!phoneNumber || !propertyLocation || !ownershipProof)) {
+      setVerificationError("Add your phone number, primary property location, and proof of ownership before submitting.");
       return;
     }
     setVerificationError("");
@@ -133,11 +191,15 @@ export default function OnboardingPage() {
     const formData = new FormData();
     formData.append("role", role ?? "student");
     formData.append("phone_number", phoneNumber);
+    formData.append("verification_consent", String(verificationConsent));
+    formData.append("business_name", businessName);
+    formData.append("property_location", propertyLocation);
     formData.append("school", school);
     formData.append("department", department);
     formData.append("level", level);
     if (idDocument) formData.append("id_card", idDocument);
     if (selfie) formData.append("live_selfie", selfie);
+    if (ownershipProof) formData.append("ownership_proof", ownershipProof);
     try {
       const response = await authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000/api"}/verification/`, {
         method: "PATCH",
@@ -146,14 +208,13 @@ export default function OnboardingPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail ?? data.non_field_errors?.[0] ?? "Unable to submit verification.");
       if (data.status === "approved") {
-        router.push("/");
+        setVerificationComplete(true);
         return;
       }
       if (data.status === "rejected") {
         throw new Error(data.rejection_message || data.review_note || "Your verification could not be approved. Please review your details and submit again.");
       }
-      setVerificationMessage("Your details were submitted and are awaiting admin review. You will continue to the homepage once approved.");
-      setAwaitingReview(true);
+      setVerificationMessage("Your details were submitted successfully.");
     } catch (requestError) {
       if (requestError instanceof Error && requestError.message === SESSION_EXPIRED) { router.replace("/login"); return; }
       setVerificationError(requestError instanceof Error ? requestError.message : "Unable to submit verification.");
@@ -162,29 +223,7 @@ export default function OnboardingPage() {
     }
   };
 
-  useEffect(() => {
-    if (!awaitingReview) return;
-    const checkReview = async () => {
-      try {
-        const response = await authenticatedFetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000/api"}/verification/`);
-        const data = await response.json();
-        if (data.status === "approved") router.push("/");
-        if (data.status === "rejected") {
-          setAwaitingReview(false);
-          setVerificationError(data.rejection_message || data.review_note || "Your verification was rejected. Please check your details and submit again.");
-        }
-      } catch (requestError) {
-        if (requestError instanceof Error && requestError.message === SESSION_EXPIRED) {
-          setAwaitingReview(false);
-          router.replace("/login");
-          return;
-        }
-        // Keep the user on this screen; the next polling attempt may succeed.
-      }
-    };
-    const intervalId = window.setInterval(checkReview, 15000);
-    return () => window.clearInterval(intervalId);
-  }, [awaitingReview, router]);
+  if (isCheckingAccount) return <PageSkeleton cards={1} />;
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--background)]">
@@ -328,11 +367,11 @@ export default function OnboardingPage() {
                   <>
                     <div>
                       <label className="block text-sm font-medium mb-2">Business Name (Optional)</label>
-                      <input type="text" placeholder="e.g. Adebayo Hostels" className="block w-full px-4 py-3 border border-[var(--border)] rounded-xl bg-[var(--background)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]" />
+                      <input type="text" value={businessName} onChange={(event) => setBusinessName(event.target.value)} placeholder="e.g. Adebayo Hostels" className="block w-full px-4 py-3 border border-[var(--border)] rounded-xl bg-[var(--background)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-2">Primary Property Location</label>
-                      <input type="text" placeholder="e.g. Ilorin, Kwara State" className="block w-full px-4 py-3 border border-[var(--border)] rounded-xl bg-[var(--background)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]" />
+                      <input type="text" value={propertyLocation} onChange={(event) => setPropertyLocation(event.target.value)} placeholder="e.g. Ilorin, Kwara State" className="block w-full px-4 py-3 border border-[var(--border)] rounded-xl bg-[var(--background)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]" />
                     </div>
                   </>
                 )}
@@ -367,16 +406,22 @@ export default function OnboardingPage() {
                   <p className="text-sm text-green-800 dark:text-green-300">Your documents are securely encrypted and only reviewed by admins. They will not be visible on your public profile.</p>
                 </div>
 
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--background)] p-4 text-sm text-[var(--foreground)]">
+                  <input type="checkbox" checked={verificationConsent} onChange={(event) => setVerificationConsent(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--primary)]" />
+                  <span><span className="font-bold">I consent to verification.</span> I consent to Hostel Mate using my ID card, live selfie, and any ownership documents to review my poster verification. These documents are not public. Without consent, I cannot complete verification or post a room through Hostel Mate.</span>
+                </label>
+
                 {role === "student" ? (
                   <>
                     {/* Student Verification */}
                     <div>
                       <label className="block text-sm font-bold mb-3">1. Capture Student ID Card</label>
                       <div className="rounded-xl border-2 border-dashed border-[var(--border)] p-5 text-center">
-                        {idPreview ? <img src={idPreview} alt="Captured student ID card" className="mx-auto mb-3 aspect-[1.586] w-full max-w-xs rounded-lg object-cover" /> : <Camera className="mx-auto mb-3 h-8 w-8 text-[var(--muted-foreground)]" />}
-                        <p className="text-sm font-semibold text-[var(--primary)]">{idDocument ? "ID card captured" : "Use your device camera to capture your card"}</p>
-                        <p className="mt-1 text-xs text-[var(--muted-foreground)]">Place the entire card inside the frame. Make sure all text is clear and glare-free.</p>
-                        <button type="button" onClick={() => openCamera("id")} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[var(--secondary)] px-4 py-2 text-sm font-bold text-[var(--primary)] hover:bg-[var(--primary)] hover:text-white"><Camera className="h-4 w-4" /> {idDocument ? "Retake ID card" : "Open ID camera"}</button>
+                        {idPreview ? <img src={idPreview} alt="Selected student ID card" className="mx-auto mb-3 aspect-[1.586] w-full max-w-xs rounded-lg object-cover" /> : <Camera className="mx-auto mb-3 h-8 w-8 text-[var(--muted-foreground)]" />}
+                        <p className="text-sm font-semibold text-[var(--primary)]">{idDocument ? "Student ID card selected" : "Capture or upload your physical student ID card"}</p>
+                        <p className="mt-1 text-xs text-[var(--muted-foreground)]">This is not a selfie. It must show the entire physical ID card, including your photo, school name, and readable details.</p>
+                        <div className="mt-4 flex flex-wrap justify-center gap-3"><button type="button" onClick={() => openCamera("id")} className="inline-flex items-center gap-2 rounded-lg bg-[var(--secondary)] px-4 py-2 text-sm font-bold text-[var(--primary)] hover:bg-[var(--primary)] hover:text-white"><Camera className="h-4 w-4" /> {idDocument ? "Retake ID card" : "Open ID camera"}</button><label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--secondary)]"><Upload className="h-4 w-4" /> Upload ID image<input type="file" accept="image/*" onChange={(event) => selectIdCardFile(event.target.files?.[0] ?? null)} className="sr-only" /></label></div>
+                        {idDocument && <label className="mt-4 flex cursor-pointer items-start gap-2 text-left text-xs text-[var(--muted-foreground)]"><input type="checkbox" checked={idCardConfirmed} onChange={(event) => setIdCardConfirmed(event.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--primary)]" /><span>I confirm this is my valid physical student ID card, not a selfie or another document.</span></label>}
                       </div>
                     </div>
                     
@@ -400,9 +445,9 @@ export default function OnboardingPage() {
                       <label className="block text-sm font-bold mb-3">Upload Proof of Ownership</label>
                       <p className="text-xs text-[var(--muted-foreground)] mb-3">E.g., Utility bill in your name, property deed, or government ID matching property documents.</p>
                       <label className="border-2 border-dashed border-[var(--border)] rounded-xl p-8 flex flex-col items-center justify-center text-center hover:bg-[var(--secondary)]/30 transition-colors cursor-pointer relative overflow-hidden group">
-                        <input type="file" accept="image/*,.pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                        <input type="file" accept="image/*,.pdf" onChange={(event) => setOwnershipProof(event.target.files?.[0] ?? null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                         <Upload className="h-8 w-8 text-[var(--muted-foreground)] mb-3 group-hover:text-[var(--primary)] transition-colors" />
-                        <span className="text-sm font-semibold text-[var(--primary)]">Click to upload documents</span>
+                        <span className="text-sm font-semibold text-[var(--primary)]">{ownershipProof ? ownershipProof.name : "Click to upload documents"}</span>
                         <span className="text-xs text-[var(--muted-foreground)] mt-1">JPEG, PNG or PDF (max. 10MB)</span>
                       </label>
                     </div>
@@ -418,16 +463,12 @@ export default function OnboardingPage() {
                 </div>
               </div>}
 
-              <div className="mt-8 flex justify-between">
-                <button onClick={handleBack} className="px-6 py-3 font-semibold text-[var(--muted-foreground)] hover:text-[var(--foreground)]">Back</button>
-                <div className="text-right">
-                  {verificationError && <p role="alert" className="mb-2 max-w-xs text-sm font-medium text-red-700">{verificationError}</p>}
-                  {verificationMessage && <p role="status" className="mb-2 max-w-xs text-sm font-medium text-green-700">{verificationMessage}</p>}
-                  <button disabled={isSubmittingVerification} onClick={submitVerification} className="flex items-center justify-center py-3 px-8 rounded-xl font-bold text-white bg-[var(--primary)] hover:bg-[var(--primary)]/90 disabled:cursor-not-allowed disabled:opacity-70">
-                    {isSubmittingVerification ? "Submitting…" : "Submit Verification"}
-                  </button>
-                </div>
+              <div className="mt-8">
+                {verificationError && <p role="alert" className="mb-3 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{verificationError}</p>}
+                {verificationMessage && <p role="status" className="mb-3 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700">{verificationMessage}</p>}
+                <div className="grid grid-cols-2 gap-3"><button type="button" onClick={handleBack} className="inline-flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--card)] px-5 py-3.5 text-sm font-bold text-[var(--foreground)] transition hover:border-[var(--primary)] hover:bg-[var(--secondary)]">Back</button><button disabled={isSubmittingVerification} onClick={submitVerification} className="inline-flex items-center justify-center rounded-xl bg-[var(--primary)] px-5 py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-[var(--primary)]/90 disabled:cursor-not-allowed disabled:opacity-70">{isSubmittingVerification ? "Submitting…" : "Submit Verification"}</button></div>
               </div>
+              {verificationComplete && <div role="status" className="fixed right-4 top-4 z-[70] flex max-w-sm items-start gap-3 rounded-xl bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-white shadow-xl sm:right-6 sm:top-6"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" /><span>Verification submitted successfully.</span></div>}
             </motion.div>
           )}
         </AnimatePresence>

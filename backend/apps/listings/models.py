@@ -58,3 +58,34 @@ class ListingLike(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=("listing", "user"), name="unique_listing_like")]
+
+
+class Reservation(models.Model):
+    """Auditable tenant reservation/payment record. Gateway settlement is added separately."""
+
+    class Status(models.TextChoices):
+        PENDING_PAYMENT = "pending_payment", "Awaiting payment"
+        PAID = "paid", "Payment confirmed"
+        RESERVED = "reserved", "Room reserved"
+        DISPUTED = "disputed", "Disputed"
+        REFUNDED = "refunded", "Refunded"
+        CANCELLED = "cancelled", "Cancelled"
+
+    listing = models.ForeignKey(Listing, on_delete=models.PROTECT, related_name="reservations")
+    tenant = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="reservations")
+    agreed_rent_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    lease_months = models.PositiveSmallIntegerField()
+    move_in_date = models.DateField()
+    inspection_confirmed = models.BooleanField(default=False)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING_PAYMENT)
+    payment_reference = models.CharField(max_length=120, blank=True, unique=True, null=True)
+    gateway = models.CharField(max_length=30, blank=True)
+    dispute_reason = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Reservation #{self.id} — {self.listing.title}"

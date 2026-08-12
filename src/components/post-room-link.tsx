@@ -10,11 +10,11 @@ type PostRoomLinkProps = {
 
 /** Routes unauthenticated visitors to sign in before they can publish. */
 export function PostRoomLink({ className, children }: PostRoomLinkProps) {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [destination, setDestination] = useState("/login");
 
   useEffect(() => {
-    setIsLoggedIn(Boolean(localStorage.getItem("hostel_mate_access_token")));
+    if (localStorage.getItem("hostel_mate_access_token")) setDestination("/post");
   }, []);
 
-  return <Link href={isLoggedIn ? "/post" : "/login"} className={className}>{children}</Link>;
+  return <Link href={destination} prefetch className={className}>{children}</Link>;
 }

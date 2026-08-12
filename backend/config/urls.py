@@ -5,16 +5,18 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from apps.accounts.views import EmailTokenObtainPairView, IdentityVerificationView, RegisterView
-from apps.listings.views import ListingViewSet
+from apps.accounts.views import CurrentUserView, EmailTokenObtainPairView, IdentityVerificationView, RegisterView
+from apps.listings.views import ListingViewSet, ReservationViewSet
 
 router = DefaultRouter()
 router.register("listings", ListingViewSet, basename="listing")
+router.register("reservations", ReservationViewSet, basename="reservation")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/auth/register/", RegisterView.as_view(), name="register"),
     path("api/auth/token/", EmailTokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/auth/me/", CurrentUserView.as_view(), name="current-user"),
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/verification/", IdentityVerificationView.as_view(), name="identity-verification"),
     path("api/", include(router.urls)),

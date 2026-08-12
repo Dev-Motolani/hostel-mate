@@ -1,19 +1,21 @@
 from django.contrib.auth import authenticate
+from django.utils import timezone
 from django.contrib.auth.models import User
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import IdentityVerification
+from .models import AccountProfile, IdentityVerification
 
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
     full_name = serializers.CharField(write_only=True, max_length=150)
+    account_type = serializers.ChoiceField(choices=AccountProfile.AccountType.choices, write_only=True)
 
     class Meta:
         model = User
-        fields = ("id", "full_name", "email", "password")
+        fields = ("id", "full_name", "email", "password", "account_type")
         read_only_fields = ("id",)
 
     def validate_email(self, value):
@@ -24,15 +26,36 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         full_name = validated_data.pop("full_name").strip()
+        account_type = validated_data.pop("account_type")
         email = validated_data["email"]
         first_name, *last_name = full_name.split(maxsplit=1)
-        return User.objects.create_user(
+        user = User.objects.create_user(
             username=email,
             email=email,
             password=validated_data["password"],
             first_name=first_name,
             last_name=last_name[0] if last_name else "",
         )
+        AccountProfile.objects.create(user=user, account_type=account_type)
+        return user
+
+
+class CurrentUserSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(source="get_full_name", read_only=True)
+    account_type = serializers.SerializerMethodField()
+    is_verified_poster = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ("id", "email", "full_name", "account_type", "is_verified_poster")
+
+    def get_account_type(self, user):
+        profile, _ = AccountProfile.objects.get_or_create(user=user)
+        return profile.account_type
+
+    def get_is_verified_poster(self, user):
+        verification = getattr(user, "identity_verification", None)
+        return bool(verification and verification.status == IdentityVerification.Status.APPROVED and verification.verification_consent)
 
 
 class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -56,14 +79,17 @@ class IdentityVerificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = IdentityVerification
         fields = (
-            "role", "phone_number", "school", "department", "level", "id_card", "live_selfie",
-            "ownership_proof", "status", "rejection_reason", "rejection_message", "review_note", "submitted_at", "updated_at",
+            "role", "phone_number", "business_name", "property_location", "school", "department", "level", "id_card", "live_selfie",
+            "ownership_proof", "verification_consent", "verification_consent_at", "status", "rejection_reason", "rejection_message", "review_note", "submitted_at", "updated_at",
         )
-        read_only_fields = ("status", "rejection_reason", "rejection_message", "review_note", "submitted_at", "updated_at")
+        read_only_fields = ("role", "verification_consent_at", "status", "rejection_reason", "rejection_message", "review_note", "submitted_at", "updated_at")
 
     def validate(self, attrs):
         instance = self.instance
         role = attrs.get("role", instance.role if instance else None)
+        consent_given = attrs.get("verification_consent", instance.verification_consent if instance else False)
+        if not consent_given:
+            raise serializers.ValidationError("Consent is required for us to review your ID card and live selfie. Without consent, you cannot complete poster verification or post a room.")
         if role == IdentityVerification.Role.STUDENT:
             required_fields = ("phone_number", "school", "department", "level")
             missing_fields = [field.replace("_", " ") for field in required_fields if not (attrs.get(field) or (instance and getattr(instance, field)))]
@@ -73,4 +99,30 @@ class IdentityVerificationSerializer(serializers.ModelSerializer):
             has_selfie = bool(attrs.get("live_selfie") or (instance and instance.live_selfie))
             if not has_id or not has_selfie:
                 raise serializers.ValidationError("A student ID card and a live selfie are required.")
+        if role == IdentityVerification.Role.LANDLORD:
+            has_phone = bool(attrs.get("phone_number") or (instance and instance.phone_number))
+            has_ownership_proof = bool(attrs.get("ownership_proof") or (instance and instance.ownership_proof))
+            has_location = bool(attrs.get("property_location") or (instance and instance.property_location))
+            if not has_phone or not has_location or not has_ownership_proof:
+                raise serializers.ValidationError("A phone number, primary property location, and proof of ownership are required for landlord verification.")
         return attrs
+
+    def update(self, instance, validated_data):
+        if validated_data.get("verification_consent") and not instance.verification_consent:
+            instance.verification_consent_at = timezone.now()
+        return super().update(instance, validated_data)
+
+    def validate_id_card(self, image):
+        """Reject unusable uploads; document type is deliberately reviewed by a human."""
+        from PIL import Image
+
+        try:
+            with Image.open(image) as opened_image:
+                width, height = opened_image.size
+        except Exception as error:
+            raise serializers.ValidationError("Upload a valid image file for your student ID card.") from error
+        finally:
+            image.seek(0)
+        if width < 800 or height < 450:
+            raise serializers.ValidationError("Your ID-card photo is too small or unclear. Upload or capture a clear image of the entire physical student ID card—not a selfie.")
+        return image

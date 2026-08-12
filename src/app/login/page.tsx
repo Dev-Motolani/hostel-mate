@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { Home, Mail, Lock, ArrowRight } from "lucide-react";
+import { Home, Mail, Lock, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function LoginPage() {
@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -95,13 +96,14 @@ export default function LoginPage() {
                       <Lock className="h-5 w-5" />
                     </div>
                     <input 
-                      type="password" 
+                      type={passwordVisible ? "text" : "password"}
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
                       required
-                      className="block w-full pl-10 pr-3 py-3 border border-[var(--border)] rounded-xl bg-[var(--background)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-all sm:text-sm" 
+                      className="block w-full pl-10 pr-12 py-3 border border-[var(--border)] rounded-xl bg-[var(--background)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-all sm:text-sm" 
                       placeholder="••••••••"
                     />
+                    <button type="button" onClick={() => setPasswordVisible((visible) => !visible)} aria-label={passwordVisible ? "Hide password" : "Show password"} aria-pressed={passwordVisible} title={passwordVisible ? "Hide password" : "Show password"} className="absolute inset-y-0 right-1 z-10 flex items-center rounded px-2 text-[var(--muted-foreground)] hover:text-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]">{passwordVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}</button>
                   </div>
                 </div>
 

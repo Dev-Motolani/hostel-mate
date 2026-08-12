@@ -4,8 +4,10 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { Home, Upload, Image as ImageIcon, MapPin, Info, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { authenticatedFetch, SESSION_EXPIRED } from "@/lib/auth";
+import { PageSkeleton } from "@/components/page-skeleton";
 
 const standardFacilities = ["Running water", "Prepaid meter", "Wi-Fi", "Security", "Kitchen", "Kitchen cabinet", "Wardrobe", "Parking"];
 const durations = [3, 6, 8, 12, 18];
@@ -25,6 +27,30 @@ export default function PostListingPage() {
   const [customMonths, setCustomMonths] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [isCheckingPosterAccess, setIsCheckingPosterAccess] = useState(true);
+  const [accessError, setAccessError] = useState("");
+
+  useEffect(() => {
+    const checkPosterAccess = async () => {
+      try {
+        const response = await authenticatedFetch(`${apiUrl}/auth/me/`);
+        if (response.status === 401) { router.replace("/login"); return; }
+        if (!response.ok) {
+          setAccessError("We could not confirm your poster access. Ensure the Django server is running and the latest database migrations have been applied.");
+          return;
+        }
+        const user = await response.json();
+        if (!user.is_verified_poster) { router.replace("/onboarding"); return; }
+      } catch (requestError) {
+        if (requestError instanceof Error && requestError.message === SESSION_EXPIRED) router.replace("/login");
+        else setAccessError("We could not reach the Hostel Mate server. Please try again.");
+      } finally { setIsCheckingPosterAccess(false); }
+    };
+    checkPosterAccess();
+  }, [router]);
+
+  if (isCheckingPosterAccess) return <PageSkeleton cards={1} />;
+  if (accessError) return <div className="grid min-h-screen place-items-center px-4 text-center"><div><p className="max-w-md text-sm font-semibold text-red-700">{accessError}</p><Link href="/listings" className="mt-4 inline-block font-bold text-[var(--primary)]">Back to rooms</Link></div></div>;
 
   const toggleFacility = (facility: string) => setFacilities((current) => current.includes(facility) ? current.filter((item) => item !== facility) : [...current, facility]);
   const addMedia = (files: FileList | null) => {

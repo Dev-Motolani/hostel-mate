@@ -1,13 +1,42 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, MapPin, Search, Home, ShieldCheck, CheckCircle2, Menu, X } from "lucide-react";
+import { MapPin, Search, Home, ShieldCheck, CheckCircle2, Menu, X, Video, LogIn } from "lucide-react";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PostRoomLink } from "@/components/post-room-link";
+import { VideoPlayer } from "@/components/video-player";
+
+const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000/api";
+const apiOrigin = apiUrl.replace(/\/api\/?$/, "");
+const mediaUrl = (url: string) => url.startsWith("http") ? url : `${apiOrigin}${url}`;
+
+type VideoListing = {
+  id: number;
+  title: string;
+  location: string;
+  videos: { id: number; video: string }[];
+};
 
 export default function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [videoListings, setVideoListings] = useState<VideoListing[]>([]);
+  const [isLoadingVideos, setIsLoadingVideos] = useState(true);
+
+  useEffect(() => {
+    fetch(`${apiUrl}/listings/?available=true`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Unable to load room videos");
+        return response.json();
+      })
+      .then((data) => {
+        const listings = Array.isArray(data) ? data : data.results ?? [];
+        setVideoListings(listings.filter((listing: VideoListing) => listing.videos?.length > 0).slice(0, 3));
+      })
+      .catch(() => setVideoListings([]))
+      .finally(() => setIsLoadingVideos(false));
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
@@ -18,7 +47,6 @@ export default function HomePage() {
             <span className="font-bold text-xl tracking-tight text-[var(--primary)]">Hostel Mate</span>
           </div>
           <nav className="hidden md:flex gap-6">
-            <Link href="/listings" className="text-base font-medium hover:text-[var(--primary)] transition-colors">Rooms</Link>
             <Link href="#explore" className="text-base font-medium hover:text-[var(--primary)] transition-colors">Explore</Link>
             <Link href="#about" className="text-base font-medium hover:text-[var(--primary)] transition-colors">About us</Link>
             <Link href="#contact" className="text-base font-medium hover:text-[var(--primary)] transition-colors">Contact</Link>
@@ -34,7 +62,7 @@ export default function HomePage() {
             </button>
           </div>
         </div>
-        {menuOpen && <nav className="border-t border-[var(--border)] bg-[var(--card)] px-4 py-4 md:hidden"><div className="mx-auto flex max-w-7xl flex-col gap-3 text-sm font-semibold"><Link onClick={() => setMenuOpen(false)} href="/listings">Rooms</Link><Link onClick={() => setMenuOpen(false)} href="#explore">Explore</Link><Link onClick={() => setMenuOpen(false)} href="#about">About us</Link><Link onClick={() => setMenuOpen(false)} href="#contact">Contact</Link><Link onClick={() => setMenuOpen(false)} href="/login">Log in</Link><Link onClick={() => setMenuOpen(false)} href="/signup" className="rounded-lg bg-[var(--primary)] px-4 py-3 text-center text-white">Sign up free</Link></div></nav>}
+        {menuOpen && <nav className="border-t border-[var(--border)] bg-[var(--card)] px-4 py-4 md:hidden"><div className="mx-auto flex max-w-7xl flex-col gap-3 text-sm font-semibold"><Link onClick={() => setMenuOpen(false)} href="#explore">Explore</Link><Link onClick={() => setMenuOpen(false)} href="#about">About us</Link><Link onClick={() => setMenuOpen(false)} href="#contact">Contact</Link><Link onClick={() => setMenuOpen(false)} href="/login">Log in</Link><Link onClick={() => setMenuOpen(false)} href="/signup" className="rounded-lg bg-[var(--primary)] px-4 py-3 text-center text-white">Sign up free</Link></div></nav>}
       </header>
 
       <main className="flex-1 pt-16">
@@ -61,9 +89,9 @@ export default function HomePage() {
             </p>
             
             <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
-              <Link href="/listings" className="w-full sm:w-auto h-14 inline-flex items-center justify-center rounded-full bg-[var(--primary)] px-10 text-lg font-bold text-white shadow-xl shadow-[var(--primary)]/20 transition-transform hover:scale-105">
-                <Search className="mr-2 h-6 w-6" />
-                Browse Rooms
+              <Link href="/login" className="w-full sm:w-auto h-14 inline-flex items-center justify-center rounded-full bg-[var(--primary)] px-10 text-lg font-bold text-white shadow-xl shadow-[var(--primary)]/20 transition-transform hover:scale-105">
+                <LogIn className="mr-2 h-6 w-6" />
+                Sign in to browse rooms
               </Link>
               <PostRoomLink className="w-full sm:w-auto h-14 inline-flex items-center justify-center rounded-full border-2 border-[var(--border)] bg-[var(--card)] px-10 text-xl font-bold text-[var(--foreground)] transition-all hover:border-[var(--primary)] hover:text-[var(--primary)] hover:shadow-lg">
                 Post a Vacant Room
@@ -78,78 +106,29 @@ export default function HomePage() {
           </motion.div>
         </section>
 
-        {/* Beautiful Rooms Gallery Section */}
+        {/* Real listing videos */}
         <section id="explore" className="py-24 bg-[var(--card)]">
           <div className="container mx-auto px-4">
             <div className="flex flex-col md:flex-row items-end justify-between mb-12">
               <div className="max-w-2xl">
-                <h2 className="text-3xl md:text-4xl font-bold mb-4">Discover beautiful rooms</h2>
-                <p className="text-[var(--muted-foreground)] text-lg">Browse through high-quality, verified listings posted by students and landlords in your area.</p>
+                <h2 className="text-3xl md:text-4xl font-bold mb-4">Room videos from posters</h2>
+                <p className="text-[var(--muted-foreground)] text-lg">Watch videos uploaded with real room listings. Sign in to browse full room details.</p>
               </div>
-              <Link href="/listings" className="group hidden md:flex items-center font-semibold text-[var(--primary)] hover:underline mt-4 md:mt-0">
-                View all listings <ArrowRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Link>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {/* Image 1 */}
-              <motion.div whileHover={{ y: -8 }} className="group overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--background)] shadow-sm transition-all hover:shadow-xl">
-                <div className="aspect-[4/3] overflow-hidden relative">
-                  <img src="https://images.unsplash.com/photo-1522771731478-44bf10448f27?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="Modern room" className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-110" />
-                  <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-green-700">Verified</div>
-                </div>
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-xl font-bold line-clamp-1">Cozy En-suite Room</h3>
-                    <span className="font-bold text-[var(--primary)]">₦150k<span className="text-xs text-[var(--muted-foreground)] font-normal">/yr</span></span>
-                  </div>
-                  <p className="text-[var(--muted-foreground)] flex items-center text-sm mb-4">
-                    <MapPin className="mr-1 h-4 w-4" /> Oke-Odo, Tanke
-                  </p>
-                </div>
-              </motion.div>
-
-              {/* Image 2 */}
-              <motion.div whileHover={{ y: -8 }} className="group rounded-3xl overflow-hidden bg-[var(--background)] border border-[var(--border)] shadow-sm hover:shadow-xl transition-all">
-                <div className="aspect-[4/3] overflow-hidden relative">
-                  <img src="https://images.unsplash.com/photo-1555854877-bab0e564b8d5?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="Minimalist room" className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-110" />
-                  <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-green-700">Verified</div>
-                </div>
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-xl font-bold line-clamp-1">Spacious Self-Contain</h3>
-                    <span className="font-bold text-[var(--primary)]">₦220k<span className="text-xs text-[var(--muted-foreground)] font-normal">/yr</span></span>
-                  </div>
-                  <p className="text-[var(--muted-foreground)] flex items-center text-sm mb-4">
-                    <MapPin className="mr-1 h-4 w-4" /> Near Mark Fuel Station
-                  </p>
-                </div>
-              </motion.div>
-
-              {/* Image 3 */}
-              <motion.div whileHover={{ y: -8 }} className="group rounded-3xl overflow-hidden bg-[var(--background)] border border-[var(--border)] shadow-sm hover:shadow-xl transition-all md:hidden lg:block">
-                <div className="aspect-[4/3] overflow-hidden relative">
-                  <img src="https://images.unsplash.com/photo-1598928506311-c55dd580e5b8?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="Shared room" className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-110" />
-                  <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-green-700">Verified</div>
-                </div>
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-xl font-bold line-clamp-1">Premium Shared Flat</h3>
-                    <span className="font-bold text-[var(--primary)]">₦180k<span className="text-xs text-[var(--muted-foreground)] font-normal">/yr</span></span>
-                  </div>
-                  <p className="text-[var(--muted-foreground)] flex items-center text-sm mb-4">
-                    <MapPin className="mr-1 h-4 w-4" /> Tipper Garage, University Road
-                  </p>
-                </div>
-              </motion.div>
-            </div>
-            
-            <div className="mt-8 text-center md:hidden">
-              <Link href="/listings" className="inline-flex items-center font-semibold text-[var(--primary)] hover:underline">
-                View all listings <ArrowRight className="ml-1 h-4 w-4" />
-              </Link>
+              {isLoadingVideos && Array.from({ length: 3 }, (_, index) => <div key={index} className="animate-pulse overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--background)]"><div className="aspect-[4/3] bg-[var(--muted)]" /><div className="space-y-3 p-6"><div className="h-6 w-3/4 rounded bg-[var(--muted)]" /><div className="h-4 w-1/2 rounded bg-[var(--muted)]" /></div></div>)}
+              {videoListings.map((listing) => <motion.div key={listing.id} whileHover={{ y: -8 }} className="overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--background)] shadow-sm transition-all hover:shadow-xl">
+                <VideoPlayer src={mediaUrl(listing.videos[0].video)} className="aspect-[4/3] w-full" />
+                <div className="p-6"><h3 className="text-xl font-bold line-clamp-1">{listing.title}</h3><p className="mt-2 flex items-center text-sm text-[var(--muted-foreground)]"><MapPin className="mr-1 h-4 w-4" /> {listing.location}</p></div>
+              </motion.div>)}
+              {!isLoadingVideos && videoListings.length === 0 && <div className="col-span-full rounded-3xl border border-[var(--border)] bg-[var(--background)] px-6 py-14 text-center text-[var(--muted-foreground)]"><Video className="mx-auto h-8 w-8" /><p className="mt-3 font-semibold">No room videos have been posted yet.</p></div>}
             </div>
           </div>
+        </section>
+
+        <section id="contact" className="border-t border-[var(--border)] bg-[var(--background)] py-24">
+          <div className="container mx-auto max-w-3xl px-4 text-center"><h2 className="text-3xl font-bold">Contact room posters safely</h2><p className="mx-auto mt-4 max-w-2xl text-lg text-[var(--muted-foreground)]">Sign in to browse room listings and access the contact details the poster provided for each room.</p><Link href="/login" className="mt-8 inline-flex h-12 items-center justify-center rounded-full bg-[var(--primary)] px-7 font-bold text-white transition hover:bg-[var(--primary)]/90">Sign in</Link></div>
         </section>
 
         {/* Features Section */}
@@ -193,7 +172,7 @@ export default function HomePage() {
       </main>
 
       {/* Footer */}
-      <footer id="contact" className="border-t border-[var(--border)] py-12 bg-[var(--card)] mt-auto">
+      <footer className="border-t border-[var(--border)] py-12 bg-[var(--card)] mt-auto">
         <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between">
           <div className="flex items-center gap-2 mb-4 md:mb-0">
             <Home className="text-[var(--primary)] h-6 w-6" />

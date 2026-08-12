@@ -2,7 +2,7 @@ from rest_framework import serializers
 from datetime import timedelta
 from django.utils import timezone
 
-from .models import Listing, ListingImage, ListingVideo
+from .models import Listing, ListingImage, ListingVideo, Reservation
 
 
 class ListingImageSerializer(serializers.ModelSerializer):
@@ -29,6 +29,7 @@ class ListingSerializer(serializers.ModelSerializer):
     likes_count = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()
     can_edit_facilities = serializers.SerializerMethodField()
+    can_manage_listing = serializers.SerializerMethodField()
     finder_phone = serializers.SerializerMethodField()
     contact_phone = serializers.SerializerMethodField()
     rent_duration_label = serializers.SerializerMethodField()
@@ -38,7 +39,7 @@ class ListingSerializer(serializers.ModelSerializer):
         fields = (
             "id", "owner", "owner_name", "owner_school", "owner_department", "owner_level", "title", "description", "location", "rent_amount",
             "payment_period", "lease_months", "rent_duration_label", "finder_phone", "contact_phone", "is_contact_free", "finder_fee", "facilities", "is_available",
-            "images", "videos", "likes_count", "is_liked", "can_edit_facilities", "created_at", "updated_at",
+            "images", "videos", "likes_count", "is_liked", "can_edit_facilities", "can_manage_listing", "created_at", "updated_at",
         )
         read_only_fields = ("id", "owner", "owner_name", "created_at", "updated_at")
 
@@ -84,6 +85,10 @@ class ListingSerializer(serializers.ModelSerializer):
         user = self.context["request"].user
         return user.is_authenticated and user == listing.owner and timezone.now() <= listing.created_at + timedelta(hours=1)
 
+    def get_can_manage_listing(self, listing):
+        user = self.context["request"].user
+        return user.is_authenticated and user == listing.owner
+
     def validate_lease_months(self, value):
         if not 1 <= value <= 18:
             raise serializers.ValidationError("Choose a rental period between 1 and 18 months.")
@@ -93,3 +98,18 @@ class ListingSerializer(serializers.ModelSerializer):
         if attrs.get("is_contact_free") is True:
             attrs["finder_fee"] = 0
         return attrs
+
+
+class ReservationSerializer(serializers.ModelSerializer):
+    listing_title = serializers.CharField(source="listing.title", read_only=True)
+    status_label = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = Reservation
+        fields = ("id", "listing", "listing_title", "agreed_rent_amount", "lease_months", "move_in_date", "inspection_confirmed", "status", "status_label", "payment_reference", "gateway", "dispute_reason", "created_at", "updated_at")
+        read_only_fields = ("id", "listing", "listing_title", "status", "status_label", "payment_reference", "gateway", "dispute_reason", "created_at", "updated_at")
+
+    def validate_inspection_confirmed(self, value):
+        if not value:
+            raise serializers.ValidationError("Confirm that you inspected the room before creating a reservation.")
+        return value

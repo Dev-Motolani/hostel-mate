@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { Home, Mail, Lock, ArrowRight, User } from "lucide-react";
+import { Home, Mail, Lock, ArrowRight, User, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function SignupPage() {
@@ -12,8 +12,11 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [accountType, setAccountType] = useState<"student" | "landlord">("student");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -27,7 +30,7 @@ export default function SignupPage() {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000/api"}/auth/register/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ full_name: fullName, email, password }),
+        body: JSON.stringify({ full_name: fullName, email, password, account_type: accountType }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -36,7 +39,7 @@ export default function SignupPage() {
       }
       localStorage.setItem("hostel_mate_access_token", data.access);
       localStorage.setItem("hostel_mate_refresh_token", data.refresh);
-      router.push("/onboarding");
+      router.push("/listings");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unable to create your account.");
     } finally {
@@ -73,6 +76,11 @@ export default function SignupPage() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-5">
+                <fieldset>
+                  <legend className="block text-sm font-medium mb-2 text-[var(--foreground)]">I am signing up as a</legend>
+                  <div className="grid grid-cols-2 gap-3"><button type="button" onClick={() => setAccountType("student")} className={`rounded-xl border px-4 py-3 text-sm font-bold transition ${accountType === "student" ? "border-[var(--primary)] bg-[var(--secondary)] text-[var(--primary)]" : "border-[var(--border)]"}`}>Student</button><button type="button" onClick={() => setAccountType("landlord")} className={`rounded-xl border px-4 py-3 text-sm font-bold transition ${accountType === "landlord" ? "border-[var(--primary)] bg-[var(--secondary)] text-[var(--primary)]" : "border-[var(--border)]"}`}>Landlord</button></div>
+                  <p className="mt-2 text-xs text-[var(--muted-foreground)]">You can always search rooms. Posting is permanently unlocked after your poster verification is approved.</p>
+                </fieldset>
                 <div>
                   <label className="block text-sm font-medium mb-2 text-[var(--foreground)]">Full Name</label>
                   <div className="relative">
@@ -114,14 +122,15 @@ export default function SignupPage() {
                       <Lock className="h-5 w-5" />
                     </div>
                     <input 
-                      type="password" 
+                      type={passwordVisible ? "text" : "password"}
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
                       required
                       minLength={8}
-                      className="block w-full pl-10 pr-3 py-3 border border-[var(--border)] rounded-xl bg-[var(--background)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-all sm:text-sm" 
+                      className="block w-full pl-10 pr-12 py-3 border border-[var(--border)] rounded-xl bg-[var(--background)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-all sm:text-sm" 
                       placeholder="Create a strong password"
                     />
+                    <button type="button" onClick={() => setPasswordVisible((visible) => !visible)} aria-label={passwordVisible ? "Hide password" : "Show password"} aria-pressed={passwordVisible} title={passwordVisible ? "Hide password" : "Show password"} className="absolute inset-y-0 right-1 z-10 flex items-center rounded px-2 text-[var(--muted-foreground)] hover:text-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]">{passwordVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}</button>
                   </div>
                 </div>
 
@@ -132,13 +141,14 @@ export default function SignupPage() {
                       <Lock className="h-5 w-5" />
                     </div>
                     <input 
-                      type="password" 
+                      type={confirmPasswordVisible ? "text" : "password"}
                       value={confirmPassword}
                       onChange={(event) => setConfirmPassword(event.target.value)}
                       required
-                      className="block w-full pl-10 pr-3 py-3 border border-[var(--border)] rounded-xl bg-[var(--background)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-all sm:text-sm" 
+                      className="block w-full pl-10 pr-12 py-3 border border-[var(--border)] rounded-xl bg-[var(--background)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-all sm:text-sm" 
                       placeholder="Confirm your password"
                     />
+                    <button type="button" onClick={() => setConfirmPasswordVisible((visible) => !visible)} aria-label={confirmPasswordVisible ? "Hide password" : "Show password"} aria-pressed={confirmPasswordVisible} title={confirmPasswordVisible ? "Hide password" : "Show password"} className="absolute inset-y-0 right-1 z-10 flex items-center rounded px-2 text-[var(--muted-foreground)] hover:text-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]">{confirmPasswordVisible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}</button>
                   </div>
                 </div>
 

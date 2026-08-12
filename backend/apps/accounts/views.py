@@ -4,8 +4,8 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import IdentityVerification
-from .serializers import EmailTokenObtainPairSerializer, IdentityVerificationSerializer, RegisterSerializer
+from .models import AccountProfile, IdentityVerification
+from .serializers import CurrentUserSerializer, EmailTokenObtainPairSerializer, IdentityVerificationSerializer, RegisterSerializer
 
 
 class RegisterView(generics.CreateAPIView):
@@ -28,17 +28,40 @@ class EmailTokenObtainPairView(TokenObtainPairView):
     serializer_class = EmailTokenObtainPairSerializer
 
 
+class CurrentUserView(generics.RetrieveAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = CurrentUserSerializer
+
+    def get_object(self):
+        return self.request.user
+
+
 class IdentityVerificationView(generics.RetrieveUpdateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = IdentityVerificationSerializer
     parser_classes = [MultiPartParser, FormParser]
 
     def get_object(self):
+        profile, _ = AccountProfile.objects.get_or_create(user=self.request.user)
         verification, _ = IdentityVerification.objects.get_or_create(
             user=self.request.user,
-            defaults={"role": IdentityVerification.Role.STUDENT},
+            defaults={"role": profile.account_type},
         )
         return verification
 
     def patch(self, request, *args, **kwargs):
-        return self.update(request, *args, partial=True, **kwargs)
+        verification = self.get_object()
+        if verification.status == IdentityVerification.Status.REJECTED:
+            verification.status = IdentityVerification.Status.PENDING
+            verification.rejection_reason = ""
+            verification.review_note = ""
+            verification.save(update_fields=("status", "rejection_reason", "review_note", "updated_at"))
+        response = self.update(request, *args, partial=True, **kwargs)
+        if response.status_code < 400:
+            verification.refresh_from_db()
+            verification.status = IdentityVerification.Status.APPROVED
+            verification.rejection_reason = ""
+            verification.review_note = ""
+            verification.save(update_fields=("status", "rejection_reason", "review_note", "updated_at"))
+            return Response(self.get_serializer(verification).data)
+        return response
