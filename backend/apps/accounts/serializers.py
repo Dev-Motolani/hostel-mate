@@ -79,7 +79,7 @@ class IdentityVerificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = IdentityVerification
         fields = (
-            "role", "phone_number", "business_name", "property_location", "school", "department", "level", "id_card", "live_selfie",
+            "role", "phone_number", "identity_document_number", "business_name", "property_location", "school", "department", "level", "id_card", "live_selfie",
             "ownership_proof", "verification_consent", "verification_consent_at", "status", "rejection_reason", "rejection_message", "review_note", "submitted_at", "updated_at",
         )
         read_only_fields = ("role", "verification_consent_at", "status", "rejection_reason", "rejection_message", "review_note", "submitted_at", "updated_at")
@@ -91,7 +91,7 @@ class IdentityVerificationSerializer(serializers.ModelSerializer):
         if not consent_given:
             raise serializers.ValidationError("Consent is required for us to review your ID card and live selfie. Without consent, you cannot complete poster verification or post a room.")
         if role == IdentityVerification.Role.STUDENT:
-            required_fields = ("phone_number", "school", "department", "level")
+            required_fields = ("phone_number", "identity_document_number", "school", "department", "level")
             missing_fields = [field.replace("_", " ") for field in required_fields if not (attrs.get(field) or (instance and getattr(instance, field)))]
             if missing_fields:
                 raise serializers.ValidationError(f"Complete these student details before submitting: {', '.join(missing_fields)}.")
@@ -105,7 +105,32 @@ class IdentityVerificationSerializer(serializers.ModelSerializer):
             has_location = bool(attrs.get("property_location") or (instance and instance.property_location))
             if not has_phone or not has_location or not has_ownership_proof:
                 raise serializers.ValidationError("A phone number, primary property location, and proof of ownership are required for landlord verification.")
+        phone_number = attrs.get("phone_number", instance.phone_number if instance else "")
+        if phone_number:
+            normalized_phone = self._normalize_phone_number(phone_number)
+            if IdentityVerification.objects.exclude(pk=getattr(instance, "pk", None)).filter(identity_phone_number=normalized_phone).exists():
+                raise serializers.ValidationError({"phone_number": "This phone number is already used by another Hostel Mate account."})
+            attrs["identity_phone_number"] = normalized_phone
         return attrs
+
+    def validate_phone_number(self, value):
+        return self._normalize_phone_number(value)
+
+    @staticmethod
+    def _normalize_phone_number(value):
+        digits = "".join(character for character in value if character.isdigit())
+        if len(digits) < 10 or len(digits) > 15:
+            raise serializers.ValidationError("Enter a valid phone number.")
+        return f"234{digits[1:]}" if digits.startswith("0") else digits
+
+    def validate_identity_document_number(self, value):
+        normalized = "".join(character for character in value.upper().strip() if character.isalnum())
+        if len(normalized) < 4:
+            raise serializers.ValidationError("Enter the ID-card number exactly as shown on your card.")
+        existing = IdentityVerification.objects.exclude(pk=getattr(self.instance, "pk", None)).filter(identity_document_number=normalized).exists()
+        if existing:
+            raise serializers.ValidationError("This ID card is already linked to another Hostel Mate account.")
+        return normalized
 
     def update(self, instance, validated_data):
         if validated_data.get("verification_consent") and not instance.verification_consent:

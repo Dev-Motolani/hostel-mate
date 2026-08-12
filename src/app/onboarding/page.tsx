@@ -35,6 +35,7 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(1);
   const [role, setRole] = useState<"student" | "landlord" | null>(null);
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [identityDocumentNumber, setIdentityDocumentNumber] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [propertyLocation, setPropertyLocation] = useState("");
   const [school, setSchool] = useState("");
@@ -169,6 +170,7 @@ export default function OnboardingPage() {
     if (role === "student") {
       const missingItems = [
         !phoneNumber && "phone number",
+        !identityDocumentNumber && "student ID-card number",
         !school && "school",
         !department && "department",
         !level && "level",
@@ -191,6 +193,7 @@ export default function OnboardingPage() {
     const formData = new FormData();
     formData.append("role", role ?? "student");
     formData.append("phone_number", phoneNumber);
+    if (role === "student") formData.append("identity_document_number", identityDocumentNumber);
     formData.append("verification_consent", String(verificationConsent));
     formData.append("business_name", businessName);
     formData.append("property_location", propertyLocation);
@@ -359,6 +362,11 @@ export default function OnboardingPage() {
                         <option value="500">500 Level</option>
                         <option value="postgrad">Postgraduate</option>
                       </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Student ID-Card Number</label>
+                      <input type="text" value={identityDocumentNumber} onChange={(event) => setIdentityDocumentNumber(event.target.value)} placeholder="Enter the number exactly as shown on your ID card" className="block w-full px-4 py-3 border border-[var(--border)] rounded-xl bg-[var(--background)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]" />
+                      <p className="mt-2 text-xs text-[var(--muted-foreground)]">Each ID card can be linked to only one Hostel Mate account.</p>
                     </div>
                   </>
                 )}

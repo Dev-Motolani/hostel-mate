@@ -23,6 +23,12 @@ load_local_environment()
 
 SECRET_KEY = os.getenv("SECRET_KEY", "unsafe-development-key-change-me")
 DEBUG = os.getenv("DEBUG", "True").lower() == "true"
+cloudinary_config = {
+    "cloud_name": os.getenv("CLOUDINARY_CLOUD_NAME", "").strip(),
+    "api_key": os.getenv("CLOUDINARY_API_KEY", "").strip(),
+    "api_secret": os.getenv("CLOUDINARY_API_SECRET", "").strip(),
+}
+USE_CLOUDINARY = all(cloudinary_config.values())
 ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if host.strip()]
 # Vercel supplies the current deployment hostname without a protocol. Including it
 # supports both the production domain and preview deployments without a wildcard.
@@ -43,6 +49,12 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.listings",
 ]
+
+if USE_CLOUDINARY:
+    import cloudinary
+
+    cloudinary.config(secure=True, **cloudinary_config)
+    INSTALLED_APPS += ["cloudinary", "cloudinary_storage"]
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
@@ -103,6 +115,11 @@ USE_TZ = True
 STATIC_URL = "static/"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+if USE_CLOUDINARY:
+    STORAGES = {
+        "default": {"BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",")]

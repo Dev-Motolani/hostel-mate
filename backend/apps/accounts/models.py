@@ -35,6 +35,8 @@ class IdentityVerification(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="identity_verification")
     role = models.CharField(max_length=10, choices=Role.choices)
     phone_number = models.CharField(max_length=25, blank=True)
+    identity_phone_number = models.CharField(max_length=15, blank=True, null=True, unique=True)
+    identity_document_number = models.CharField(max_length=80, blank=True, null=True, unique=True)
     business_name = models.CharField(max_length=180, blank=True)
     property_location = models.CharField(max_length=255, blank=True)
     school = models.CharField(max_length=180, blank=True)
