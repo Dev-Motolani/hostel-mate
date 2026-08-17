@@ -1,5 +1,11 @@
+from datetime import timedelta
+
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
+
+
+LISTING_EDIT_WINDOW = timedelta(minutes=3)
 
 
 class Listing(models.Model):
@@ -30,6 +36,9 @@ class Listing(models.Model):
 
     def __str__(self):
         return self.title
+
+    def within_edit_window(self):
+        return timezone.now() <= self.created_at + LISTING_EDIT_WINDOW
 
 
 class ListingImage(models.Model):
@@ -73,6 +82,7 @@ class Reservation(models.Model):
 
     listing = models.ForeignKey(Listing, on_delete=models.PROTECT, related_name="reservations")
     tenant = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="reservations")
+    poster = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="referral_reservations")
     agreed_rent_amount = models.DecimalField(max_digits=12, decimal_places=2)
     lease_months = models.PositiveSmallIntegerField()
     move_in_date = models.DateField()
@@ -81,6 +91,12 @@ class Reservation(models.Model):
     payment_reference = models.CharField(max_length=120, blank=True, unique=True, null=True)
     gateway = models.CharField(max_length=30, blank=True)
     dispute_reason = models.TextField(blank=True)
+    referral_percent = models.DecimalField(max_digits=5, decimal_places=2)
+    referral_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    processor_percent = models.DecimalField(max_digits=5, decimal_places=2)
+    processor_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    platform_percent = models.DecimalField(max_digits=5, decimal_places=2)
+    platform_amount = models.DecimalField(max_digits=12, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

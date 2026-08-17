@@ -7,10 +7,19 @@ type VideoPlayerProps = {
 };
 
 export function VideoPlayer({ src, className = "", muted = false }: VideoPlayerProps) {
+  const sourceType = src.split("?")[0].endsWith(".webm") ? "video/webm" : src.split("?")[0].endsWith(".mov") ? "video/quicktime" : "video/mp4";
+
   return (
-    <div className={`relative overflow-hidden bg-slate-100 ${className}`}>
-      <video controls muted={muted} playsInline preload="metadata" className="block h-full w-full bg-slate-100 object-cover">
-        <source src={src} />
+    <div className={`relative bg-black ${className}`}>
+      <video
+        key={src}
+        controls
+        muted={muted}
+        playsInline
+        preload="metadata"
+        className="block h-full w-full bg-black object-contain"
+      >
+        <source src={src} type={sourceType} />
       </video>
     </div>
   );

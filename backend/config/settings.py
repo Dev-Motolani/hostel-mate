@@ -1,4 +1,5 @@
 import os
+from decimal import Decimal
 from datetime import timedelta
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
@@ -135,3 +136,8 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
 }
+
+POSTER_REFERRAL_PERCENT = Decimal(os.getenv("POSTER_REFERRAL_PERCENT", "2.5").strip() or "2.5")
+PAYMENT_PROCESSOR_PERCENT = Decimal(os.getenv("PAYMENT_PROCESSOR_PERCENT", "1.5").strip() or "1.5")
+HOSTELMATE_FEE_PERCENT = Decimal(os.getenv("HOSTELMATE_FEE_PERCENT", "2").strip() or "2")
+REFERRAL_FEE_PERCENT = POSTER_REFERRAL_PERCENT + PAYMENT_PROCESSOR_PERCENT + HOSTELMATE_FEE_PERCENT

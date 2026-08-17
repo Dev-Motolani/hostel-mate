@@ -25,7 +25,6 @@ async function readApiResponse(response: Response) {
 
 export default function PostListingPage() {
   const router = useRouter();
-  const [isFree, setIsFree] = useState(true);
   const [facilities, setFacilities] = useState<string[]>([]);
   const [customFacility, setCustomFacility] = useState("");
   const [photos, setPhotos] = useState<File[]>([]);
@@ -39,6 +38,8 @@ export default function PostListingPage() {
   const [error, setError] = useState("");
   const [isCheckingPosterAccess, setIsCheckingPosterAccess] = useState(true);
   const [accessError, setAccessError] = useState("");
+  const [referralPercent, setReferralPercent] = useState(3);
+  const [platformPercent, setPlatformPercent] = useState(5);
 
   useEffect(() => {
     const checkPosterAccess = async () => {
@@ -51,6 +52,8 @@ export default function PostListingPage() {
         }
         const user = await response.json();
         if (!user.is_verified_poster) { router.replace("/onboarding"); return; }
+        if (user.referral_fee_percent) setReferralPercent(Number(user.referral_fee_percent));
+        if (user.platform_fee_percent) setPlatformPercent(Number(user.platform_fee_percent));
       } catch (requestError) {
         if (requestError instanceof Error && requestError.message === SESSION_EXPIRED) router.replace("/login");
         else setAccessError("We could not reach the Hostel Mate server. Please try again.");
@@ -114,8 +117,7 @@ export default function PostListingPage() {
         body: JSON.stringify({
           title: form.get("title"), description: form.get("description"), location: form.get("location"),
           rent_amount: form.get("rent_amount"), payment_period: "year", lease_months: months,
-          finder_phone: form.get("finder_phone"), contact_phone: form.get("contact_phone"), is_contact_free: isFree,
-          finder_fee: isFree ? 0 : form.get("finder_fee"), facilities,
+          finder_phone: form.get("finder_phone"), contact_phone: form.get("contact_phone"), facilities,
         }),
       });
       const data = await readApiResponse(response);
@@ -160,7 +162,7 @@ export default function PostListingPage() {
 
         <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm"><h2 className="mb-4 text-xl font-bold">Rent pricing</h2><div className="grid gap-5 md:grid-cols-2"><Field label="Rent amount"><input required min="0" step="0.01" name="rent_amount" type="number" placeholder="250000" className="input" /></Field><Field label="Rental period"><select value={customMonths ? "custom" : leaseMonths} onChange={(event) => { setCustomMonths(event.target.value === "custom"); if (event.target.value !== "custom") setLeaseMonths(event.target.value); }} className="input">{durations.map((months) => <option key={months} value={months}>{months === 12 ? "Per year (12 months)" : months === 18 ? "Per 1½ years (18 months)" : `Per ${months} months`}</option>)}<option value="custom">Another number of months</option></select></Field></div>{customMonths && <div className="mt-5"><Field label="Number of months (1–18)"><input value={leaseMonths} onChange={(event) => setLeaseMonths(event.target.value)} required min="1" max="18" type="number" className="input" /></Field></div>}</section>
 
-        <section className="space-y-6 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm"><h2 className="mb-2 text-xl font-bold">Contact and finder&apos;s fee</h2><Field label="Finder&apos;s phone number"><input required name="finder_phone" type="tel" placeholder="08012345678" className="input" /></Field><Field label="Landlord/caretaker phone number"><input required name="contact_phone" type="tel" placeholder="08012345678" className="input" /></Field><div className="border-t border-[var(--border)] pt-5"><div className="mb-4 flex items-center justify-between"><div><h3 className="font-bold">Unlock model</h3><p className="text-xs text-[var(--muted-foreground)]">Should students pay to see the contact?</p></div><div className="flex rounded-lg bg-[var(--secondary)] p-1"><button type="button" onClick={() => setIsFree(true)} className={`rounded-md px-4 py-1.5 text-sm font-bold ${isFree ? "bg-white shadow-sm text-green-700" : "text-[var(--muted-foreground)]"}`}>Free</button><button type="button" onClick={() => setIsFree(false)} className={`rounded-md px-4 py-1.5 text-sm font-bold ${!isFree ? "bg-white shadow-sm text-[var(--primary)]" : "text-[var(--muted-foreground)]"}`}>Paid</button></div></div>{!isFree && <Field label="Finder's fee amount (₦)"><input required name="finder_fee" type="number" min="0" step="0.01" className="input" /></Field>}</div></section>
+        <section className="space-y-6 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm"><h2 className="mb-2 text-xl font-bold">Contact and referral</h2><Field label="Finder&apos;s phone number"><input required name="finder_phone" type="tel" placeholder="08012345678" className="input" /></Field><Field label="Landlord/caretaker phone number"><input required name="contact_phone" type="tel" placeholder="08012345678" className="input" /></Field><div className="rounded-xl bg-[var(--secondary)]/40 p-4 text-sm leading-6 text-[var(--muted-foreground)]"><p className="font-bold text-[var(--foreground)]">{referralPercent + platformPercent}% booking fee on rent paid through Hostel Mate</p><p className="mt-1">You earn {referralPercent}% of the rent. Hostel Mate keeps {platformPercent}% to run payments and the platform. If more than one person posts the same room, the poster share goes to the listing the student paid through.</p></div></section>
         {error && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</p>}
         <button disabled={isSubmitting} type="submit" className="w-full rounded-xl bg-[var(--primary)] px-5 py-4 text-base font-bold text-white shadow-sm transition hover:bg-[var(--primary)]/90 disabled:cursor-not-allowed disabled:opacity-70">{isSubmitting ? "Publishing…" : "Publish listing"}</button>
       </form>

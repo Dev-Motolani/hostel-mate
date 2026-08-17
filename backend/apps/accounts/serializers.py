@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.utils import timezone
 from django.contrib.auth.models import User
@@ -44,10 +45,14 @@ class CurrentUserSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(source="get_full_name", read_only=True)
     account_type = serializers.SerializerMethodField()
     is_verified_poster = serializers.SerializerMethodField()
+    referral_fee_percent = serializers.SerializerMethodField()
+    processor_fee_percent = serializers.SerializerMethodField()
+    platform_fee_percent = serializers.SerializerMethodField()
+    total_fee_percent = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ("id", "email", "full_name", "account_type", "is_verified_poster")
+        fields = ("id", "email", "full_name", "account_type", "is_verified_poster", "referral_fee_percent", "processor_fee_percent", "platform_fee_percent", "total_fee_percent")
 
     def get_account_type(self, user):
         profile, _ = AccountProfile.objects.get_or_create(user=user)
@@ -56,6 +61,18 @@ class CurrentUserSerializer(serializers.ModelSerializer):
     def get_is_verified_poster(self, user):
         verification = getattr(user, "identity_verification", None)
         return bool(verification and verification.status == IdentityVerification.Status.APPROVED and verification.verification_consent)
+
+    def get_referral_fee_percent(self, user):
+        return settings.POSTER_REFERRAL_PERCENT
+
+    def get_processor_fee_percent(self, user):
+        return settings.PAYMENT_PROCESSOR_PERCENT
+
+    def get_platform_fee_percent(self, user):
+        return settings.HOSTELMATE_FEE_PERCENT
+
+    def get_total_fee_percent(self, user):
+        return settings.REFERRAL_FEE_PERCENT
 
 
 class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):

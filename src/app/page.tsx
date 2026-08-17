@@ -154,8 +154,8 @@ export default function HomePage() {
                 <div className="h-14 w-14 bg-[var(--primary)]/10 rounded-2xl flex items-center justify-center mb-6 text-[var(--primary)] relative z-10">
                   <ShieldCheck className="h-7 w-7" />
                 </div>
-                <h3 className="text-xl font-bold mb-3 relative z-10">2. Unlock Contact</h3>
-                <p className="text-[var(--muted-foreground)] relative z-10">Get the landlord's direct phone number securely. Accounts are ID-verified for your safety.</p>
+                <h3 className="text-xl font-bold mb-3 relative z-10">2. Contact the poster</h3>
+                <p className="text-[var(--muted-foreground)] relative z-10">Sign in to see the poster&apos;s number, inspect the room, and complete rent through Hostel Mate.</p>
               </motion.div>
               
               <motion.div whileHover={{ y: -5 }} className="bg-[var(--card)] p-8 rounded-2xl shadow-sm border border-[var(--border)] relative overflow-hidden group">
