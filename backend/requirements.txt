@@ -7,6 +7,7 @@ django-cloudinary-storage==0.3.0
 django-cors-headers==4.9.0
 djangorestframework==3.17.2
 djangorestframework_simplejwt==5.5.1
+gunicorn==26.1.0
 idna==3.18
 pillow==11.3.0
 psycopg==3.3.4
