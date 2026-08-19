@@ -28,6 +28,11 @@ class ListingViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = Listing.objects.select_related("owner").prefetch_related("images", "videos", "likes")
+        
+        my_listings = self.request.query_params.get("my_listings")
+        if my_listings == "true" and self.request.user.is_authenticated:
+            return queryset.filter(owner=self.request.user)
+
         available = self.request.query_params.get("available")
         verified = self.request.query_params.get("verified")
         if available in ("true", "false"):
@@ -38,8 +43,8 @@ class ListingViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         verification = getattr(self.request.user, "identity_verification", None)
-        if not verification or verification.status != IdentityVerification.Status.APPROVED or not verification.verification_consent:
-            raise PermissionDenied("Give consent and complete approved poster verification before posting a room. Once approved, your poster access remains active.")
+        if not verification or verification.status not in (IdentityVerification.Status.APPROVED, IdentityVerification.Status.PENDING) or not verification.verification_consent:
+            raise PermissionDenied("Give consent and complete poster verification before posting a room.")
         serializer.save(owner=self.request.user, is_contact_free=True, finder_fee=0)
 
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])

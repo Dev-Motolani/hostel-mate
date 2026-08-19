@@ -210,14 +210,11 @@ export default function OnboardingPage() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail ?? data.non_field_errors?.[0] ?? "Unable to submit verification.");
-      if (data.status === "approved") {
-        setVerificationComplete(true);
-        return;
-      }
       if (data.status === "rejected") {
         throw new Error(data.rejection_message || data.review_note || "Your verification could not be approved. Please review your details and submit again.");
       }
-      setVerificationMessage("Your details were submitted successfully.");
+      setVerificationComplete(true);
+      router.push("/post");
     } catch (requestError) {
       if (requestError instanceof Error && requestError.message === SESSION_EXPIRED) { router.replace("/login"); return; }
       setVerificationError(requestError instanceof Error ? requestError.message : "Unable to submit verification.");

@@ -6,6 +6,7 @@ import { ArrowLeft, Coins, CreditCard, History, Home } from "lucide-react";
 import { useEffect, useState } from "react";
 import { authenticatedFetch, SESSION_EXPIRED } from "@/lib/auth";
 import { PageSkeleton } from "@/components/page-skeleton";
+import { LogoutButton } from "@/components/logout-button";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000/api";
 
@@ -103,9 +104,12 @@ export default function CreditsPage() {
             </span>
             <span className="hidden sm:block">Hostel Mate</span>
           </Link>
-          <Link href="/listings" className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-950">
-            <ArrowLeft className="h-4 w-4" /> Back to rooms
-          </Link>
+          <div className="flex items-center gap-6">
+            <Link href="/listings" className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-950">
+              <ArrowLeft className="h-4 w-4" /> Back to rooms
+            </Link>
+            <LogoutButton className="hidden sm:flex text-sm font-bold text-slate-500 hover:text-red-600" />
+          </div>
         </div>
       </header>
 

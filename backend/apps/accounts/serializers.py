@@ -52,10 +52,11 @@ class CurrentUserSerializer(serializers.ModelSerializer):
     total_fee_percent = serializers.SerializerMethodField()
     is_student_verified = serializers.SerializerMethodField()
     hostelmate_credit_balance = serializers.SerializerMethodField()
+    identity_verification_status = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ("id", "email", "full_name", "account_type", "is_verified_poster", "is_student_verified", "hostelmate_credit_balance", "referral_fee_percent", "processor_fee_percent", "platform_fee_percent", "total_fee_percent")
+        fields = ("id", "email", "full_name", "account_type", "is_verified_poster", "is_student_verified", "hostelmate_credit_balance", "referral_fee_percent", "processor_fee_percent", "platform_fee_percent", "total_fee_percent", "identity_verification_status")
 
     def get_account_type(self, user):
         profile, _ = AccountProfile.objects.get_or_create(user=user)
@@ -89,6 +90,10 @@ class CurrentUserSerializer(serializers.ModelSerializer):
 
     def get_total_fee_percent(self, user):
         return settings.REFERRAL_FEE_PERCENT
+        
+    def get_identity_verification_status(self, user):
+        verification = getattr(user, "identity_verification", None)
+        return verification.status if verification else "none"
 
 
 class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):

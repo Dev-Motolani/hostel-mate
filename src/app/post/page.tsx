@@ -51,7 +51,7 @@ export default function PostListingPage() {
           return;
         }
         const user = await response.json();
-        if (!user.is_verified_poster) { router.replace("/onboarding"); return; }
+        if (user.identity_verification_status !== "pending" && user.identity_verification_status !== "approved") { router.replace("/onboarding"); return; }
         if (user.referral_fee_percent) setReferralPercent(Number(user.referral_fee_percent));
         if (user.platform_fee_percent) setPlatformPercent(Number(user.platform_fee_percent));
       } catch (requestError) {

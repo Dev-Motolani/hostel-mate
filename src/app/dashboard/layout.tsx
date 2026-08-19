@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { Home, LayoutDashboard, Users, Building } from "lucide-react";
+import { LogoutButton } from "@/components/logout-button";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -23,6 +26,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Link href="/dashboard/users" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 font-bold">
               <Users className="h-5 w-5" /> User Verification
             </Link>
+            
+            <div className="pt-8 mt-8 border-t border-slate-100">
+              <LogoutButton className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-50 text-red-600 font-bold w-full" />
+            </div>
           </nav>
         </div>
       </aside>

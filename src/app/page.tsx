@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { PostRoomLink } from "@/components/post-room-link";
 import { VideoPlayer } from "@/components/video-player";
+import { LogoutButton } from "@/components/logout-button";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000/api";
 const apiOrigin = apiUrl.replace(/\/api\/?$/, "");
@@ -31,9 +32,11 @@ export default function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [listings, setListings] = useState<Listing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [saved, setSaved] = useState<number[]>([]);
 
   useEffect(() => {
+    setIsLoggedIn(!!localStorage.getItem("hostel_mate_access_token"));
     fetch(`${apiUrl}/listings/?available=true&verified=true`)
       .then(async (response) => {
         if (!response.ok) throw new Error("Unable to load rooms");
@@ -60,19 +63,46 @@ export default function HomePage() {
             <Link href="#explore" className="text-base font-medium hover:text-[var(--primary)] transition-colors">Explore</Link>
             <Link href="#about" className="text-base font-medium hover:text-[var(--primary)] transition-colors">About us</Link>
             <Link href="#contact" className="text-base font-medium hover:text-[var(--primary)] transition-colors">Contact</Link>
-            <Link href="/login" className="text-base font-medium hover:text-[var(--primary)] transition-colors">Log in</Link>
+            {!isLoggedIn ? (
+              <Link href="/login" className="text-base font-medium hover:text-[var(--primary)] transition-colors">Log in</Link>
+            ) : (
+              <Link href="/account" className="text-base font-medium hover:text-[var(--primary)] transition-colors">My Account</Link>
+            )}
           </nav>
           <div className="flex items-center gap-4">
-            <Link href="/signup" className="hidden md:inline-flex h-9 items-center justify-center rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white shadow transition-colors hover:bg-[var(--primary)]/90">
-              Sign Up Free
-            </Link>
+            {!isLoggedIn ? (
+              <Link href="/signup" className="hidden md:inline-flex h-9 items-center justify-center rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white shadow transition-colors hover:bg-[var(--primary)]/90">
+                Sign Up Free
+              </Link>
+            ) : (
+              <LogoutButton className="hidden md:inline-flex h-9 items-center justify-center rounded-md bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-200" />
+            )}
             {/* Mobile Menu Toggle */}
             <button type="button" onClick={() => setMenuOpen((open) => !open)} aria-label="Toggle navigation menu" aria-expanded={menuOpen} className="md:hidden p-2 text-[var(--foreground)]">
               {menuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
           </div>
         </div>
-        {menuOpen && <nav className="border-t border-[var(--border)] bg-[var(--card)] px-4 py-4 md:hidden"><div className="mx-auto flex max-w-7xl flex-col gap-3 text-sm font-semibold"><Link onClick={() => setMenuOpen(false)} href="#explore">Explore</Link><Link onClick={() => setMenuOpen(false)} href="#about">About us</Link><Link onClick={() => setMenuOpen(false)} href="#contact">Contact</Link><Link onClick={() => setMenuOpen(false)} href="/login">Log in</Link><Link onClick={() => setMenuOpen(false)} href="/signup" className="rounded-lg bg-[var(--primary)] px-4 py-3 text-center text-white">Sign up free</Link></div></nav>}
+        {menuOpen && (
+          <nav className="border-t border-[var(--border)] bg-[var(--card)] px-4 py-4 md:hidden">
+            <div className="mx-auto flex max-w-7xl flex-col gap-3 text-sm font-semibold">
+              <Link onClick={() => setMenuOpen(false)} href="#explore">Explore</Link>
+              <Link onClick={() => setMenuOpen(false)} href="#about">About us</Link>
+              <Link onClick={() => setMenuOpen(false)} href="#contact">Contact</Link>
+              {!isLoggedIn ? (
+                <>
+                  <Link onClick={() => setMenuOpen(false)} href="/login">Log in</Link>
+                  <Link onClick={() => setMenuOpen(false)} href="/signup" className="rounded-lg bg-[var(--primary)] px-4 py-3 text-center text-white">Sign up free</Link>
+                </>
+              ) : (
+                <>
+                  <Link onClick={() => setMenuOpen(false)} href="/account">My Account</Link>
+                  <LogoutButton className="text-red-600 font-bold" />
+                </>
+              )}
+            </div>
+          </nav>
+        )}
       </header>
 
       <main className="flex-1 pt-16">

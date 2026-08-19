@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { PostRoomLink } from "@/components/post-room-link";
 import { VideoPlayer } from "@/components/video-player";
 import { PageSkeleton } from "@/components/page-skeleton";
+import { LogoutButton } from "@/components/logout-button";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000/api";
 const apiOrigin = apiUrl.replace(/\/api\/?$/, "");
@@ -87,7 +88,15 @@ export default function ListingsPage() {
             </span>
             <span className="text-lg">Hostel Mate</span>
           </Link>
-          <PostRoomLink className="rounded-full bg-[#111827] px-5 py-3 text-base font-bold text-white transition hover:bg-slate-700">Post a room</PostRoomLink>
+          <div className="flex items-center gap-3">
+            {accessToken && (
+              <>
+                <Link href="/account" className="hidden sm:flex text-sm font-bold text-slate-500 hover:text-slate-900 px-2">My Account</Link>
+                <LogoutButton className="hidden sm:flex text-sm font-bold text-slate-500 hover:text-red-600 px-2" />
+              </>
+            )}
+            <PostRoomLink className="rounded-full bg-[#111827] px-5 py-3 text-base font-bold text-white transition hover:bg-slate-700">Post a room</PostRoomLink>
+          </div>
         </div>
       </header>
 
