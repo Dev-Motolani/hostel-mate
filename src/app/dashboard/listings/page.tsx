@@ -9,7 +9,7 @@ import { VideoPlayer } from "@/components/video-player";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000/api";
 const apiOrigin = apiUrl.replace(/\/api\/?$/, "");
-const mediaUrl = (url: string) => (url.startsWith("http") ? url : `${apiOrigin}${url}`);
+const mediaUrl = (url?: string) => (url ? (url.startsWith("http") ? url : `${apiOrigin}${url}`) : "");
 
 type Listing = {
   id: number;
