@@ -199,3 +199,7 @@ class ListingReportSerializer(serializers.ModelSerializer):
         model = ListingReport
         fields = ("id", "listing", "reporter", "reason", "reason_label", "details", "is_resolved", "created_at")
         read_only_fields = ("id", "listing", "reporter", "is_resolved", "created_at")
+
+class AdminListingSerializer(ListingSerializer):
+    class Meta(ListingSerializer.Meta):
+        read_only_fields = ("id", "owner", "owner_name", "verification_date", "created_at", "updated_at")

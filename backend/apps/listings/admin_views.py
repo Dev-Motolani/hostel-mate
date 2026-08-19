@@ -1,10 +1,10 @@
 from rest_framework import viewsets, mixins, filters
 from rest_framework.permissions import IsAdminUser
 from .models import Listing
-from .serializers import ListingSerializer
+from .serializers import AdminListingSerializer
 
 class AdminListingViewSet(viewsets.ModelViewSet):
-    serializer_class = ListingSerializer
+    serializer_class = AdminListingSerializer
     permission_classes = [IsAdminUser]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["title", "owner__email"]

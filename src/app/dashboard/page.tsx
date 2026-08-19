@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authenticatedFetch, SESSION_EXPIRED } from "@/lib/auth";
 import { PageSkeleton } from "@/components/page-skeleton";
@@ -59,15 +60,15 @@ export default function DashboardPage() {
       <h1 className="text-3xl font-extrabold mb-8">Overview</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-slate-200">
+        <Link href="/dashboard/listings" className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-slate-200 hover:ring-[var(--primary)] transition-all cursor-pointer block">
           <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Pending Listings</h2>
           <p className="text-4xl font-black mt-2 text-slate-800">{stats.pendingListings}</p>
-        </div>
+        </Link>
         
-        <div className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-slate-200">
+        <Link href="/dashboard/users" className="bg-white p-6 rounded-2xl shadow-sm ring-1 ring-slate-200 hover:ring-[var(--primary)] transition-all cursor-pointer block">
           <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider">Pending User Verifications</h2>
           <p className="text-4xl font-black mt-2 text-slate-800">{stats.pendingUsers}</p>
-        </div>
+        </Link>
       </div>
     </div>
   );

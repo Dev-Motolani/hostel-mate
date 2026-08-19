@@ -1,10 +1,10 @@
 from rest_framework import viewsets, mixins, filters
 from rest_framework.permissions import IsAdminUser
 from .models import IdentityVerification
-from .serializers import IdentityVerificationSerializer
+from .serializers import AdminIdentityVerificationSerializer
 
 class AdminIdentityVerificationViewSet(viewsets.ModelViewSet):
-    serializer_class = IdentityVerificationSerializer
+    serializer_class = AdminIdentityVerificationSerializer
     permission_classes = [IsAdminUser]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["user__email", "phone_number", "business_name", "school"]

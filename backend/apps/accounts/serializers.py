@@ -189,3 +189,7 @@ class IdentityVerificationSerializer(serializers.ModelSerializer):
         if width < 800 or height < 450:
             raise serializers.ValidationError("Your ID-card photo is too small or unclear. Upload or capture a clear image of the entire physical student ID card—not a selfie.")
         return image
+
+class AdminIdentityVerificationSerializer(IdentityVerificationSerializer):
+    class Meta(IdentityVerificationSerializer.Meta):
+        read_only_fields = ("role", "verification_consent_at", "rejection_message", "submitted_at", "updated_at")
