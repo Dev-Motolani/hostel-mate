@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "apps.accounts",
     "apps.listings",
+    "apps.payments",
 ]
 
 if USE_CLOUDINARY:
@@ -141,3 +142,8 @@ POSTER_REFERRAL_PERCENT = Decimal(os.getenv("POSTER_REFERRAL_PERCENT", "2.5").st
 PAYMENT_PROCESSOR_PERCENT = Decimal(os.getenv("PAYMENT_PROCESSOR_PERCENT", "1.5").strip() or "1.5")
 HOSTELMATE_FEE_PERCENT = Decimal(os.getenv("HOSTELMATE_FEE_PERCENT", "2").strip() or "2")
 REFERRAL_FEE_PERCENT = POSTER_REFERRAL_PERCENT + PAYMENT_PROCESSOR_PERCENT + HOSTELMATE_FEE_PERCENT
+
+INSPECTION_REQUEST_CREDITS = int(os.getenv("INSPECTION_REQUEST_CREDITS", "5000").strip() or "5000")
+PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY", "").strip()
+PAYSTACK_WEBHOOK_SECRET = os.getenv("PAYSTACK_WEBHOOK_SECRET", "").strip() or PAYSTACK_SECRET_KEY
+PAYSTACK_CALLBACK_URL = os.getenv("PAYSTACK_CALLBACK_URL", "http://localhost:3000/payment/callback").strip()

@@ -6,6 +6,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+from apps.payments.models import CreditWallet
 from .models import AccountProfile, IdentityVerification
 
 
@@ -49,10 +50,12 @@ class CurrentUserSerializer(serializers.ModelSerializer):
     processor_fee_percent = serializers.SerializerMethodField()
     platform_fee_percent = serializers.SerializerMethodField()
     total_fee_percent = serializers.SerializerMethodField()
+    is_student_verified = serializers.SerializerMethodField()
+    hostelmate_credit_balance = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ("id", "email", "full_name", "account_type", "is_verified_poster", "referral_fee_percent", "processor_fee_percent", "platform_fee_percent", "total_fee_percent")
+        fields = ("id", "email", "full_name", "account_type", "is_verified_poster", "is_student_verified", "hostelmate_credit_balance", "referral_fee_percent", "processor_fee_percent", "platform_fee_percent", "total_fee_percent")
 
     def get_account_type(self, user):
         profile, _ = AccountProfile.objects.get_or_create(user=user)
@@ -61,6 +64,19 @@ class CurrentUserSerializer(serializers.ModelSerializer):
     def get_is_verified_poster(self, user):
         verification = getattr(user, "identity_verification", None)
         return bool(verification and verification.status == IdentityVerification.Status.APPROVED and verification.verification_consent)
+
+    def get_is_student_verified(self, user):
+        verification = getattr(user, "identity_verification", None)
+        return bool(
+            verification
+            and verification.role == IdentityVerification.Role.STUDENT
+            and verification.status == IdentityVerification.Status.APPROVED
+            and verification.verification_consent
+        )
+
+    def get_hostelmate_credit_balance(self, user):
+        wallet = CreditWallet.objects.filter(user=user).only("balance").first()
+        return wallet.balance if wallet else 0
 
     def get_referral_fee_percent(self, user):
         return settings.POSTER_REFERRAL_PERCENT

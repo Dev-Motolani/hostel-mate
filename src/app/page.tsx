@@ -11,30 +11,40 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000/api";
 const apiOrigin = apiUrl.replace(/\/api\/?$/, "");
 const mediaUrl = (url: string) => url.startsWith("http") ? url : `${apiOrigin}${url}`;
 
-type VideoListing = {
+type Listing = {
   id: number;
   title: string;
   location: string;
+  rent_amount: string;
+  rent_duration_label: string;
+  facilities: string[];
+  owner_name: string;
+  owner_department: string;
+  owner_level: string;
+  images: { image: string }[];
   videos: { id: number; video: string }[];
+  verification_status: string;
+  is_hostelmate_verified: boolean;
 };
 
 export default function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [videoListings, setVideoListings] = useState<VideoListing[]>([]);
-  const [isLoadingVideos, setIsLoadingVideos] = useState(true);
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [saved, setSaved] = useState<number[]>([]);
 
   useEffect(() => {
-    fetch(`${apiUrl}/listings/?available=true`)
+    fetch(`${apiUrl}/listings/?available=true&verified=true`)
       .then(async (response) => {
-        if (!response.ok) throw new Error("Unable to load room videos");
+        if (!response.ok) throw new Error("Unable to load rooms");
         return response.json();
       })
       .then((data) => {
-        const listings = Array.isArray(data) ? data : data.results ?? [];
-        setVideoListings(listings.filter((listing: VideoListing) => listing.videos?.length > 0).slice(0, 3));
+        const fetchedListings = Array.isArray(data) ? data : data.results ?? [];
+        setListings(fetchedListings);
       })
-      .catch(() => setVideoListings([]))
-      .finally(() => setIsLoadingVideos(false));
+      .catch(() => setListings([]))
+      .finally(() => setIsLoading(false));
   }, []);
 
   return (
@@ -111,18 +121,62 @@ export default function HomePage() {
           <div className="container mx-auto px-4">
             <div className="flex flex-col md:flex-row items-end justify-between mb-12">
               <div className="max-w-2xl">
-                <h2 className="text-3xl md:text-4xl font-bold mb-4">Room videos from posters</h2>
-                <p className="text-[var(--muted-foreground)] text-lg">Watch videos uploaded with real room listings. Sign in to browse full room details.</p>
+                <h2 className="text-3xl md:text-4xl font-bold mb-4">Available Rooms</h2>
+                <p className="text-[var(--muted-foreground)] text-lg">Browse verified rooms from real students and landlords. Sign in to view details and request an inspection.</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {isLoadingVideos && Array.from({ length: 3 }, (_, index) => <div key={index} className="animate-pulse overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--background)]"><div className="aspect-[4/3] bg-[var(--muted)]" /><div className="space-y-3 p-6"><div className="h-6 w-3/4 rounded bg-[var(--muted)]" /><div className="h-4 w-1/2 rounded bg-[var(--muted)]" /></div></div>)}
-              {videoListings.map((listing) => <motion.div key={listing.id} whileHover={{ y: -8 }} className="overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--background)] shadow-sm transition-all hover:shadow-xl">
-                <VideoPlayer src={mediaUrl(listing.videos[0].video)} className="aspect-[4/3] w-full" />
-                <div className="p-6"><h3 className="text-xl font-bold line-clamp-1">{listing.title}</h3><p className="mt-2 flex items-center text-sm text-[var(--muted-foreground)]"><MapPin className="mr-1 h-4 w-4" /> {listing.location}</p></div>
-              </motion.div>)}
-              {!isLoadingVideos && videoListings.length === 0 && <div className="col-span-full rounded-3xl border border-[var(--border)] bg-[var(--background)] px-6 py-14 text-center text-[var(--muted-foreground)]"><Video className="mx-auto h-8 w-8" /><p className="mt-3 font-semibold">No room videos have been posted yet.</p></div>}
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+              {isLoading && Array.from({ length: 4 }, (_, index) => <div key={index} className="animate-pulse overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--background)]"><div className="aspect-[0.9] bg-[var(--muted)]" /><div className="space-y-3 p-6"><div className="h-6 w-3/4 rounded bg-[var(--muted)]" /><div className="h-4 w-1/2 rounded bg-[var(--muted)]" /></div></div>)}
+              {listings.map((listing) => {
+                const isSaved = saved.includes(listing.id);
+                const image = listing.images?.[0]?.image;
+                const video = listing.videos?.[0]?.video;
+                const posterDetails = [listing.owner_department, listing.owner_level].filter(Boolean).join(" · ");
+
+                return (
+                  <article key={listing.id} className="group overflow-hidden rounded-[24px] bg-white shadow-sm ring-1 ring-slate-200 transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/70">
+                    <div className="relative aspect-[0.9] overflow-hidden">
+                      {image ? (
+                        <img src={mediaUrl(image)} alt={listing.title} loading="lazy" decoding="async" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                      ) : video ? (
+                        <VideoPlayer src={mediaUrl(video)} muted className="h-full w-full" />
+                      ) : (
+                        <div className="grid h-full place-items-center bg-slate-100 text-center text-sm font-semibold text-slate-500">No media uploaded</div>
+                      )}
+
+                      <button
+                        onClick={() => setSaved((current) => (isSaved ? current.filter((item) => item !== listing.id) : [...current, listing.id]))}
+                        aria-label="Save listing"
+                        className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-white text-slate-600 shadow-sm"
+                      >
+                        <svg className={`h-4 w-4 ${isSaved ? "fill-rose-500 text-rose-500" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+                      </button>
+
+                      {listing.is_hostelmate_verified && (
+                        <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-[#15803d] px-2.5 py-1 text-[11px] font-extrabold text-white">
+                          <ShieldCheck className="h-3 w-3" /> HostelMate Verified
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="p-5">
+                      <p className="flex items-center gap-1 text-sm font-semibold text-slate-500">
+                        <MapPin className="h-4 w-4 text-[#15803d]" /> {listing.location}
+                      </p>
+                      <Link href={`/listings/${listing.id}`} prefetch className="mt-2 block text-xl font-extrabold tracking-tight hover:text-[#15803d] text-slate-900">
+                        {listing.title}
+                      </Link>
+                      <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 text-xs">
+                        <p className="font-bold text-slate-800">{listing.owner_name || "Poster name unavailable"}</p>
+                        <p className="mt-1 text-slate-500">{posterDetails || "Department and level unavailable"}</p>
+                      </div>
+                      <p className="mt-4 text-lg font-black text-slate-900">₦{Number(listing.rent_amount).toLocaleString()}</p>
+                    </div>
+                  </article>
+                );
+              })}
+              {!isLoading && listings.length === 0 && <div className="col-span-full rounded-3xl border border-[var(--border)] bg-[var(--background)] px-6 py-14 text-center text-[var(--muted-foreground)]"><Video className="mx-auto h-8 w-8" /><p className="mt-3 font-semibold">No verified rooms have been posted yet.</p></div>}
             </div>
           </div>
         </section>

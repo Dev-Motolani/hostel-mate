@@ -59,7 +59,7 @@ class IdentityVerificationView(generics.RetrieveUpdateAPIView):
         response = self.update(request, *args, partial=True, **kwargs)
         if response.status_code < 400:
             verification.refresh_from_db()
-            verification.status = IdentityVerification.Status.APPROVED
+            verification.status = IdentityVerification.Status.PENDING
             verification.rejection_reason = ""
             verification.review_note = ""
             verification.save(update_fields=("status", "rejection_reason", "review_note", "updated_at"))

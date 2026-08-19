@@ -1,3 +1,6 @@
+from django.conf import settings
+from django.db import transaction
+from django.db.models import F
 from rest_framework import filters, viewsets
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import action
@@ -5,13 +8,15 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Listing, ListingImage, ListingLike, ListingVideo, Reservation
+from apps.payments.models import CreditTransaction, CreditWallet
+from .models import InspectionRequest, Listing, ListingImage, ListingLike, ListingReport, ListingVideo, Reservation
 from apps.accounts.models import IdentityVerification
 from .permissions import IsOwnerOrReadOnly
 from .referral import platform_amount, platform_percent, poster_amount, poster_percent, processor_amount, processor_percent
-from .serializers import ListingImageSerializer, ListingSerializer, ListingVideoSerializer, ReservationSerializer
+from .serializers import InspectionRequestSerializer, ListingImageSerializer, ListingReportSerializer, ListingSerializer, ListingVideoSerializer, ReservationSerializer
 
 EDITABLE_LISTING_FIELDS = {"location", "facilities"}
+INSPECTION_REQUEST_CREDITS = settings.INSPECTION_REQUEST_CREDITS
 
 
 class ListingViewSet(viewsets.ModelViewSet):
@@ -24,8 +29,11 @@ class ListingViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = Listing.objects.select_related("owner").prefetch_related("images", "videos", "likes")
         available = self.request.query_params.get("available")
+        verified = self.request.query_params.get("verified")
         if available in ("true", "false"):
             queryset = queryset.filter(is_available=available == "true")
+        if verified in ("true", "false"):
+            queryset = queryset.filter(verification_status=Listing.VerificationStatus.VERIFIED) if verified == "true" else queryset.exclude(verification_status=Listing.VerificationStatus.VERIFIED)
         return queryset
 
     def perform_create(self, serializer):
@@ -48,6 +56,7 @@ class ListingViewSet(viewsets.ModelViewSet):
             tenant=request.user,
             poster=listing.owner,
             agreed_rent_amount=listing.rent_amount,
+            agreed_caution_fee_amount=listing.caution_fee_amount,
             lease_months=listing.lease_months,
             referral_percent=poster_percent(),
             referral_amount=poster_amount(listing.rent_amount),
@@ -57,6 +66,69 @@ class ListingViewSet(viewsets.ModelViewSet):
             platform_amount=platform_amount(listing.rent_amount),
         )
         return Response(ReservationSerializer(reservation).data, status=201)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
+    def request_inspection(self, request, pk=None):
+        listing = self.get_object()
+        if listing.owner == request.user:
+            return Response({"detail": "You cannot request inspection for your own listing."}, status=400)
+        if not listing.is_available:
+            return Response({"detail": "This room is no longer available."}, status=400)
+        if not listing.is_hostelmate_verified:
+            return Response({"detail": "Only HostelMate verified listings can be inspected through this flow."}, status=400)
+
+        serializer = InspectionRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        with transaction.atomic():
+            wallet, _ = CreditWallet.objects.select_for_update().get_or_create(user=request.user)
+            if wallet.balance < INSPECTION_REQUEST_CREDITS:
+                return Response(
+                    {
+                        "detail": "Insufficient HostelMate Credits for this request.",
+                        "required_credits": INSPECTION_REQUEST_CREDITS,
+                        "available_credits": wallet.balance,
+                    },
+                    status=400,
+                )
+            wallet.balance = F("balance") - INSPECTION_REQUEST_CREDITS
+            wallet.save(update_fields=("balance", "updated_at"))
+            wallet.refresh_from_db()
+
+            inspection_request = InspectionRequest.objects.create(
+                listing=listing,
+                student=request.user,
+                credits_charged=INSPECTION_REQUEST_CREDITS,
+                notes=serializer.validated_data.get("notes", ""),
+                scheduled_for=serializer.validated_data.get("scheduled_for"),
+            )
+            CreditTransaction.objects.create(
+                user=request.user,
+                credits=-INSPECTION_REQUEST_CREDITS,
+                transaction_type=CreditTransaction.Type.INSPECTION_DEBIT,
+                status=CreditTransaction.Status.SUCCESS,
+                description=f"Inspection request for listing #{listing.id}",
+                metadata={"listing_id": listing.id, "inspection_request_id": inspection_request.id},
+            )
+
+        return Response(InspectionRequestSerializer(inspection_request).data, status=201)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
+    def report(self, request, pk=None):
+        listing = self.get_object()
+        serializer = ListingReportSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        report, created = ListingReport.objects.get_or_create(
+            listing=listing,
+            reporter=request.user,
+            defaults={
+                "reason": serializer.validated_data["reason"],
+                "details": serializer.validated_data.get("details", ""),
+            },
+        )
+        if not created:
+            return Response({"detail": "You have already reported this listing."}, status=400)
+        return Response(ListingReportSerializer(report).data, status=201)
 
     def update(self, request, *args, **kwargs):
         listing = self.get_object()
@@ -171,3 +243,29 @@ class ReservationViewSet(viewsets.ReadOnlyModelViewSet):
         reservation.dispute_reason = reason
         reservation.save(update_fields=("status", "dispute_reason", "updated_at"))
         return Response(ReservationSerializer(reservation).data)
+
+
+class InspectionRequestViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = InspectionRequestSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return InspectionRequest.objects.filter(student=self.request.user).select_related("listing")
+
+    @action(detail=True, methods=["post"])
+    def cancel(self, request, pk=None):
+        inspection_request = self.get_object()
+        if inspection_request.status not in (InspectionRequest.Status.PENDING, InspectionRequest.Status.ACCEPTED, InspectionRequest.Status.INSPECTION_SCHEDULED):
+            return Response({"detail": "This request cannot be cancelled anymore."}, status=400)
+        inspection_request.status = InspectionRequest.Status.CANCELLED
+        inspection_request.cancelled_reason = str(request.data.get("reason", "")).strip()
+        inspection_request.save(update_fields=("status", "cancelled_reason", "updated_at"))
+        return Response(InspectionRequestSerializer(inspection_request).data)
+
+
+class ListingReportViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = ListingReportSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return ListingReport.objects.filter(reporter=self.request.user).select_related("listing")
